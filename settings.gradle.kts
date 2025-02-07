@@ -1,5 +1,2 @@
-plugins {
-}
-
 rootProject.name = "aa"
-include("app", "list", "utilities")
+include("app", "libs")
