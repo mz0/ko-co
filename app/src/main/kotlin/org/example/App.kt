@@ -1,20 +1,24 @@
 package org.example
 
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import org.apache.logging.log4j.kotlin.logger
+
 
 class App {
     val greeting: String
         get() {
-            return "Hello k-World!"
+            return "Hello"
         }
-
-    companion object {
-        val logger = logger()
-    }
-
 }
 
-fun main() {
-    App.logger.info("App started")
+fun main() = runBlocking {
+    launch {
+        delay(1000L)
+        println("async k-World!")
+        logger.info("Launched")
+    }
+    logger.info("App started")
     println(App().greeting)
 }
