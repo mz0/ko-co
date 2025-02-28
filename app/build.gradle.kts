@@ -1,5 +1,6 @@
 plugins {
-    id("buildlogic.java-application-conventions")
+    id("buildlogic.java-common-conventions")
+    application
 }
 
 dependencies {
@@ -8,6 +9,7 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect") // log4j in Kotlin needs it, but states this fact
     implementation(project(":libs"))
 
+    testImplementation(kotlin("test"))
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-debug:1.10.1")
 }
 

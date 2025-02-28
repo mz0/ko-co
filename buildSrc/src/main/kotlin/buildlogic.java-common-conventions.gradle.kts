@@ -2,7 +2,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     java
-    id("org.jetbrains.kotlin.jvm")
+    id("org.jetbrains.kotlin.jvm") // set version in buildSrc/build.gradle.kts
 }
 
 repositories {

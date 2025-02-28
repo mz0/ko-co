@@ -1,2 +1,6 @@
 /shelf/
 /workspace.xml
+
+# mz0: exclude also
+/misc.xml
+/codeStyles/
