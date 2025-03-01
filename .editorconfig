@@ -1,0 +1,29 @@
+# EditorConfig: http://EditorConfig.org
+
+# Top-most EditorConfig file
+root = true
+
+# General settings
+[*]
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{cmd,bat}]
+end_of_line = crlf
+
+[*.{xml,xsd,xml.mustache}]
+tab_width = 2
+indent_style = tab
+charset = utf-8
+
+[*.md]
+charset = utf-8
+# Markdown renders \b\b at EoL as <BR>
+trim_trailing_whitespace = false
+
+# Source code files
+[*.{java,kt,sql,sh,py,kts}]
+charset = utf-8
+indent_style = space
+indent_size = 4

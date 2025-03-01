@@ -10,6 +10,7 @@ dependencies {
     implementation(project(":libs"))
 
     testImplementation(kotlin("test"))
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-debug:1.10.1")
 }
 
