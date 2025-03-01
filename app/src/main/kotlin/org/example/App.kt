@@ -8,115 +8,75 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import org.apache.logging.log4j.kotlin.logger
 import java.io.FileInputStream
-import java.io.IOException
-import java.io.InputStreamReader
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.nio.ByteBuffer
 
-private const val BUFFER_SIZE = 8192 // Adjust buffer size as needed
+private const val BUFFER_SIZE = 8192
 private const val D_QUOTE = '"'
-private const val S_QUOTE = '\''
 private const val QUOTE = D_QUOTE
 private const val ESCAPE_CHAR = '\\'
 private const val NL_CHAR = '\n'
-private const val CR = '\r'
 
 data class CsvRow(val cells: List<String>)
 
 fun parseCsv(filePath: String): Flow<CsvRow> = flow {
-    val fileInputStream = FileInputStream(filePath)
-    val inputStreamReader = InputStreamReader(fileInputStream)
+        FileInputStream(filePath).channel.use { fis ->
+            val buffer: ByteBuffer = ByteBuffer.allocate(BUFFER_SIZE)
+            val currentCell = StringBuilder()
+            val cells = mutableListOf<String>()
+            var inQuote = false
+            var escaped = false
 
-    val buffer = CharArray(BUFFER_SIZE)
-    var currentCell = StringBuilder()
-    val cells = mutableListOf<String>()
-    var inQuote = false
-    var escaped = false
-    var charsRead: Int
-    var bufferIndex = 0
+            while (fis.read(buffer) != -1) {
+                buffer.flip() // Prepare buffer for reading
 
-    try {
-        while (inputStreamReader.read(buffer).also { charsRead = it } != -1) {
-            bufferIndex = 0
-            while (bufferIndex < charsRead) {
-                val char = buffer[bufferIndex]
+                while (buffer.hasRemaining()) {
+                    val char = buffer.get().toInt().toChar()
 
-                when {
-                    escaped -> {
-                        currentCell.append(char)
+                    if (escaped) {
+                        currentCell.append(char) // Literal character after escape
                         escaped = false
-                        bufferIndex++
-                    }
-
-                    char == ESCAPE_CHAR -> {
+                    } else if (char == ESCAPE_CHAR) {
                         escaped = true
-                        bufferIndex++
-                    }
-
-                    char == QUOTE -> {
+                    } else if (char == QUOTE) {
                         if (inQuote
                             && currentCell.isNotEmpty()
-                            && bufferIndex + 1 < charsRead // Ensure we don't go out of bounds
-                            && buffer[bufferIndex + 1] == QUOTE) {
+                            && buffer.hasRemaining()
+                            && buffer.get(buffer.position()).toInt().toChar() == QUOTE) {
+                            // Escaped quote within quoted cell
                             currentCell.append(QUOTE)
-                            bufferIndex += 2 // Skip the next quote
+                            buffer.position(buffer.position() + 1) // Skip the extra quote
                         } else {
                             inQuote = !inQuote
-                            bufferIndex++
                         }
-                    }
-
-                    char == NL_CHAR && !inQuote -> {
+                    } else if (char == NL_CHAR && !inQuote) {
                         cells.add(currentCell.toString())
-                        emit(CsvRow(cells.toList()))
+                        emit(CsvRow(cells.toList())) // Emit the row
                         currentCell.clear()
                         cells.clear()
-                        bufferIndex++
-                    }
-
-                    char == ',' && !inQuote -> {
+                    } else if (char == ',' && !inQuote) {
                         cells.add(currentCell.toString())
                         currentCell.clear()
-                        bufferIndex++
-                    }
-
-                    else -> {
+                    } else {
                         currentCell.append(char)
-                        bufferIndex++
                     }
                 }
+                buffer.clear() // Prepare buffer for next read
+            }
+
+            // Handle last row if no newline at end of file
+            if (currentCell.isNotEmpty() || cells.isNotEmpty()) {
+                cells.add(currentCell.toString())
+                emit(CsvRow(cells.toList()))
             }
         }
-
-        // Handle last row if no newline at end of file
-        if (currentCell.isNotEmpty() || cells.isNotEmpty()) {
-            cells.add(currentCell.toString())
-            emit(CsvRow(cells.toList()))
-        }
-    } catch (e: IOException) {
-        logger.error("Error reading file: ${e.message}")
-    } finally {
-        // Ensure resources are closed in the finally block
-        try {
-            inputStreamReader.close()
-        } catch (e: IOException) {
-            logger.error("Error closing reader: ${e.message}")
-        }
-        try {
-            fileInputStream.close()
-        } catch (e: IOException) {
-            logger.error("Error closing stream: ${e.message}")
-        }
-    }
 }.flowOn(Dispatchers.IO)
 
 
-fun main() = runBlocking {
+suspend fun main() {
     // TODO cycle over /home/mz0/e/shsha/src/functionalTest/testResources/parseTest/*/expected_data/*.csv
     val filePath: Path
     val resourcesDir = "src/test/resources/org/example"
@@ -129,10 +89,7 @@ fun main() = runBlocking {
     } else {
         throw IllegalStateException("unexpected working directory: " + Paths.get("").toAbsolutePath())
     }
-    launch {
-        parseCsv(filePath.toString()).collect { row ->
-            println(row) // Or process the row as needed
-        }
+    parseCsv(filePath.toString()).collect { row ->
+        println(row) // Or process the row as needed
     }
-    return@runBlocking
 }
