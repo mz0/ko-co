@@ -1,0 +1,13 @@
+capturedmsgid,destinationip,destinationport,eventtype,headerclientseqnum,headermessagebufferlength,headermessageformat,headermessageid,headerpartitionid,headersequencenumber,id,logincontextid,origin,packetusername,routingseq,sourceip,sourceport,time,timeinmicroseconds,timeinseconds,timestamp,trailertime,trailertimestamp,transactionid,uid,userid,xmlcontent
+24,,0,1,,497,3,2424,2,3075,25,700,2,,3075,,0,,150122,1724308251,,0,,802,,nkuzmin,"<?xml version=""1.0"" encoding=""UTF-8"" ?>
+ <smsg namespace = ""exchange"" name = ""User Event Info"">
+    <field name = ""Routing Seq"">3075</field>
+    <field name = ""Origin"">2</field>
+    <field name = ""Transaction ID"">802</field>
+    <field name = ""User ID"">nkuzmin</field>
+    <field name = ""Event Type"">1</field>
+    <field name = ""Time In Seconds"">1724308251</field>
+    <field name = ""Time In Micro Seconds"">150122</field>
+    <field name = ""Login Context ID"">700</field>
+ </smsg>
+"
