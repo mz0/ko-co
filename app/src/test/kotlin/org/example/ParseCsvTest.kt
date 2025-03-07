@@ -3,6 +3,8 @@ package org.example
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import org.assertj.core.api.Assertions.assertThat
+import org.example.csv.CsvRow
+import org.example.csv.parseCsv
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
@@ -109,7 +111,7 @@ class ParseCsvTest {
         """.trimIndent()
         val expectedRows = listOf(
             CsvRow(listOf("Alice", "back\\slash")),
-            CsvRow(listOf("Bob","back\\slash \\\"")),
+            CsvRow(listOf("Bob", "back\\slash \\\"")),
         )
 
         val csvFilePath = createTempCsvFile(csvContent)
