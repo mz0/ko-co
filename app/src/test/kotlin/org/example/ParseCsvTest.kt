@@ -11,22 +11,23 @@ import java.nio.file.Path
 
 class ParseCsvTest {
     @Test
-    fun `parseCsv should parse a simple CSV file`() = runTest {
+    fun `parseCsv should parse a simple CSV file with header`() = runTest {
         val csvContent = """
             name,age,city
             Alice,30,New York
             Bob,25,Los Angeles
             Charlie,35,Chicago
         """.trimIndent()
+        val expectedHeader = listOf("name", "age", "city")
         val expectedRows = listOf(
-            CsvRow(listOf("name", "age", "city")),
-            CsvRow(listOf("Alice", "30", "New York")),
-            CsvRow(listOf("Bob", "25", "Los Angeles")),
-            CsvRow(listOf("Charlie", "35", "Chicago")),
+            CsvRow(emptyList(), expectedHeader),
+            CsvRow(listOf("Alice", "30", "New York"), expectedHeader),
+            CsvRow(listOf("Bob", "25", "Los Angeles"), expectedHeader),
+            CsvRow(listOf("Charlie", "35", "Chicago"), expectedHeader),
         )
 
         val csvFilePath = createTempCsvFile(csvContent)
-        val actualRows = parseCsv(csvFilePath).toList()
+        val actualRows = parseCsv(csvFilePath, true).toList()
         assertThat(actualRows).isEqualTo(expectedRows)
     }
 
@@ -42,7 +43,7 @@ class ParseCsvTest {
         )
 
         val csvFilePath = createTempCsvFile(csvContent)
-        val actualRows = parseCsv(csvFilePath).toList()
+        val actualRows = parseCsv(csvFilePath, false).toList()
         assertThat(actualRows).isEqualTo(expectedRows)
     }
 
@@ -58,7 +59,7 @@ class ParseCsvTest {
         )
 
         val csvFilePath = createTempCsvFile(csvContent)
-        val actualRows = parseCsv(csvFilePath).toList()
+        val actualRows = parseCsv(csvFilePath, false).toList()
         assertThat(actualRows).isEqualTo(expectedRows)
     }
 
@@ -69,14 +70,15 @@ class ParseCsvTest {
             "Alice, Smith",30,"New York"
             Bob,25,"Los Angeles, CA"
         """.trimIndent()
+        val expectedHeader = listOf("name", "age", "city")
         val expectedRows = listOf(
-            CsvRow(listOf("name", "age", "city")),
-            CsvRow(listOf("Alice, Smith", "30", "New York")),
-            CsvRow(listOf("Bob", "25", "Los Angeles, CA")),
+            CsvRow(emptyList(), expectedHeader),
+            CsvRow(listOf("Alice, Smith", "30", "New York"), expectedHeader),
+            CsvRow(listOf("Bob", "25", "Los Angeles, CA"), expectedHeader),
         )
 
         val csvFilePath = createTempCsvFile(csvContent)
-        val actualRows = parseCsv(csvFilePath).toList()
+        val actualRows = parseCsv(csvFilePath, true).toList()
         assertThat(actualRows).isEqualTo(expectedRows)
     }
 
@@ -87,32 +89,31 @@ class ParseCsvTest {
             "Alice","She said ""Hello""."
             Bob,"Another ""quoted"" description"
         """.trimIndent()
+        val expectedHeader = listOf("name", "description")
         val expectedRows = listOf(
-            CsvRow(listOf("name", "description")),
-            CsvRow(listOf("Alice", "She said \"Hello\".")),
-            CsvRow(listOf("Bob", "Another \"quoted\" description")),
+            CsvRow(emptyList(), expectedHeader),
+            CsvRow(listOf("Alice", "She said \"Hello\"."), expectedHeader),
+            CsvRow(listOf("Bob", "Another \"quoted\" description"), expectedHeader),
         )
 
         val csvFilePath = createTempCsvFile(csvContent)
-        val actualRows = parseCsv(csvFilePath).toList()
+        val actualRows = parseCsv(csvFilePath, true).toList()
         assertThat(actualRows).isEqualTo(expectedRows)
     }
 
     @Test
     fun `parseCsv should handle escape char`() = runTest {
         val csvContent = """
-            name,description
             Alice,"back\\slash"
             Bob,"back\\slash \\""
         """.trimIndent()
         val expectedRows = listOf(
-            CsvRow(listOf("name", "description")),
             CsvRow(listOf("Alice", "back\\slash")),
             CsvRow(listOf("Bob","back\\slash \\\"")),
         )
 
         val csvFilePath = createTempCsvFile(csvContent)
-        val actualRows = parseCsv(csvFilePath).toList()
+        val actualRows = parseCsv(csvFilePath, false).toList()
         assertThat(actualRows).isEqualTo(expectedRows)
     }
 
@@ -122,20 +123,24 @@ class ParseCsvTest {
         val expectedRows = emptyList<CsvRow>()
 
         val csvFilePath = createTempCsvFile(csvContent)
-        val actualRows = parseCsv(csvFilePath).toList()
+        var actualRows = parseCsv(csvFilePath, true).toList()
+        assertThat(actualRows).isEqualTo(expectedRows)
+
+        actualRows = parseCsv(csvFilePath, false).toList()
         assertThat(actualRows).isEqualTo(expectedRows)
     }
 
     @Test
     fun `parseCsv should handle files with no newline in the last line`() = runTest {
         val csvContent = "name,age\nAlice,30"
+        val expectedHeader = listOf("name", "age")
         val expectedRows = listOf(
-            CsvRow(listOf("name", "age")),
-            CsvRow(listOf("Alice", "30")),
+            CsvRow(emptyList(), expectedHeader),
+            CsvRow(listOf("Alice", "30"), expectedHeader),
         )
 
         val csvFilePath = createTempCsvFile(csvContent)
-        val actualRows = parseCsv(csvFilePath).toList()
+        val actualRows = parseCsv(csvFilePath, true).toList()
         assertThat(actualRows).isEqualTo(expectedRows)
     }
 
@@ -153,10 +158,10 @@ class ParseCsvTest {
 
         var actualRows: List<CsvRow>
 
-        actualRows = parseCsv(createTempCsvFile(csv2rows)).toList()
+        actualRows = parseCsv(createTempCsvFile(csv2rows), false).toList()
         assertThat(actualRows).isEqualTo(expect2rows)
 
-        actualRows = parseCsv(createTempCsvFile(csv1row)).toList()
+        actualRows = parseCsv(createTempCsvFile(csv1row), false).toList()
         assertThat(actualRows).isEqualTo(expect1row)
     }
 
