@@ -24,11 +24,16 @@ fun parseCsv(filePath: String, hasHeader: Boolean, bufferSize: Int = BUFFER_SIZE
         var escaped = false
         var currentCsvRow = 0
         var header: List<String>? = null
+        var lastCharWasCR = false // Track CR for CR LF newlines
 
         while (fis.read(buffer) != -1) {
-            buffer.flip() // Prepare buffer for reading
+            buffer.flip() // Prepare buffer for scanning
             while (buffer.hasRemaining()) {
                 val char = buffer.get().toInt().toChar()
+                if (lastCharWasCR && char == '\n'){
+                     lastCharWasCR = false
+                     continue // Skip the newline character
+                }
                 when {
                     escaped -> {
                         currentCell.append(char) // Literal character after escape
@@ -41,7 +46,6 @@ fun parseCsv(filePath: String, hasHeader: Boolean, bufferSize: Int = BUFFER_SIZE
 
                     char == QUOTE -> {
                         if (inQuote
-                            && currentCell.isNotEmpty()
                             && buffer.hasRemaining()
                             && buffer.get(buffer.position()).toInt().toChar() == QUOTE
                         ) { // Escaped quote within quoted cell
@@ -52,7 +56,8 @@ fun parseCsv(filePath: String, hasHeader: Boolean, bufferSize: Int = BUFFER_SIZE
                         }
                     }
 
-                    char == NL_CHAR && !inQuote -> {
+                    (char == NL_CHAR && !inQuote) || (char == '\r' && !inQuote) -> {
+                        lastCharWasCR = char == '\r'
                         currentCsvRow++
                         cells.add(currentCell.toString().trim())
                         if (currentCsvRow == 1 && hasHeader) {
@@ -77,17 +82,16 @@ fun parseCsv(filePath: String, hasHeader: Boolean, bufferSize: Int = BUFFER_SIZE
             }
 
             buffer.clear() // Prepare buffer for next read
-
-            // Handle last row if no newline at end of file
-            if (currentCell.isNotEmpty() || cells.isNotEmpty()) {
-                currentCsvRow++
-                cells.add(currentCell.toString().trim())
-                if (hasHeader && currentCsvRow == 1) {
-                    header = cells.toList()
-                    emit(CsvRow(emptyList(), header))
-                } else {
-                    emit(CsvRow(cells.toList(), header))
-                }
+        }
+        // Handle last row if no newline at end of file
+        if (currentCell.isNotEmpty() || cells.isNotEmpty()) {
+            currentCsvRow++
+            cells.add(currentCell.toString().trim())
+            if (hasHeader && currentCsvRow == 1) {
+                header = cells.toList()
+                emit(CsvRow(emptyList(), header))
+            } else {
+                emit(CsvRow(cells.toList(), header))
             }
         }
     }

@@ -34,6 +34,52 @@ class ParseCsvTest {
     }
 
     @Test
+    fun `parseCsv should handle headers longer than buffer size`() = runTest {
+        val csvContent = "foo, name, description\n"
+        val expectedHeader = listOf("foo", "name", "description")
+        val expectedRows = listOf(
+            CsvRow(emptyList(), expectedHeader),
+        )
+
+        val csvFilePath = createTempCsvFile(csvContent)
+        val actualRows = parseCsv(csvFilePath, true, 4).toList() // bufferSize = 4
+        assertThat(actualRows).isEqualTo(expectedRows)
+    }
+
+    @Test
+    fun `parseCsv should handle cells longer than buffer size`() = runTest {
+        val csvContent = "foo, name, description\n"
+        val expectedRows = listOf(
+            CsvRow(listOf("foo", "name", "description")),
+        )
+
+        val csvFilePath = createTempCsvFile(csvContent)
+        val actualRows = parseCsv(csvFilePath, false, 4).toList() // bufferSize = 4
+        assertThat(actualRows).isEqualTo(expectedRows)
+    }
+
+    @Test
+    fun `parseCsv should handle rows longer than buffer size`() = runTest {
+        val longDescription = "This is a very long description that is much longer than the buffer size of 8 bytes."
+        val desc2 = "Another long description that exceeds 8 bytes."
+        val csvContent = """
+        name,description
+        Alice, $longDescription
+        Bob, $desc2
+    """.trimIndent()
+        val expectedHeader = listOf("name", "description")
+        val expectedRows = listOf(
+            CsvRow(emptyList(), expectedHeader),
+            CsvRow(listOf("Alice", longDescription), expectedHeader),
+            CsvRow(listOf("Bob", desc2), expectedHeader),
+        )
+
+        val csvFilePath = createTempCsvFile(csvContent)
+        val actualRows = parseCsv(csvFilePath, true, 8).toList() // Use a buffer size of 8 for the test
+        assertThat(actualRows).isEqualTo(expectedRows)
+    }
+
+    @Test
     fun `parseCsv should parse a CSV file, having only header line`() = runTest {
         val csvContent = "name,age (years),city\n"
         val expectedHeader = listOf("name", "age (years)", "city")
@@ -183,6 +229,36 @@ class ParseCsvTest {
 
         actualRows = parseCsv(createTempCsvFile(csv1row), false).toList()
         assertThat(actualRows).isEqualTo(expect1row)
+    }
+
+    @Test
+    fun `parseCsv should handle CRLF line endings`() = runTest {
+        val csvContent = "name,age\r\nAlice,30\r\nBob,25\r\n"
+        val expectedHeader = listOf("name", "age")
+        val expectedRows = listOf(
+            CsvRow(emptyList(), expectedHeader),
+            CsvRow(listOf("Alice", "30"), expectedHeader),
+            CsvRow(listOf("Bob", "25"), expectedHeader),
+        )
+
+        val csvFilePath = createTempCsvFile(csvContent)
+        val actualRows = parseCsv(csvFilePath, true).toList()
+        assertThat(actualRows).isEqualTo(expectedRows)
+    }
+
+    @Test
+    fun `parseCsv should handle CR line endings`() = runTest {
+        val csvContent = "name,age\rAlice,30\rBob,25\r"
+        val expectedHeader = listOf("name", "age")
+        val expectedRows = listOf(
+            CsvRow(emptyList(), expectedHeader),
+            CsvRow(listOf("Alice", "30"), expectedHeader),
+            CsvRow(listOf("Bob", "25"), expectedHeader),
+        )
+
+        val csvFilePath = createTempCsvFile(csvContent)
+        val actualRows = parseCsv(csvFilePath, true).toList()
+        assertThat(actualRows).isEqualTo(expectedRows)
     }
 
     @TempDir
