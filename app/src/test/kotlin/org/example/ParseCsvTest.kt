@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import java.io.FileWriter
+import java.nio.charset.Charset
+import java.nio.charset.StandardCharsets
 import java.nio.file.Path
 
 class ParseCsvTest {
@@ -34,48 +36,79 @@ class ParseCsvTest {
     }
 
     @Test
-    fun `parseCsv should handle headers longer than buffer size`() = runTest {
-        val csvContent = "foo, name, description\n"
-        val expectedHeader = listOf("foo", "name", "description")
+    fun `parseCsv does not check row length`() = runTest {
+        val csvContent = """
+            name,age,city
+            Alice, 30, New York
+            Bob, Single, 25,Los Angeles
+            Charlie,35
+            Charlie,35,
+        """.trimIndent()
+        val expectedHeader = listOf("name", "age", "city")
+        val expectedRows = listOf(
+            CsvRow(emptyList(), expectedHeader),
+            CsvRow(listOf("Alice", "30", "New York"), expectedHeader),
+            CsvRow(listOf("Bob", "Single", "25", "Los Angeles"), expectedHeader),
+            CsvRow(listOf("Charlie", "35"), expectedHeader),
+            CsvRow(listOf("Charlie", "35", ""), expectedHeader),
+        )
+
+        val csvFilePath = createTempCsvFile(csvContent)
+        val actualRows = parseCsv(csvFilePath, true).toList()
+        assertThat(actualRows).isEqualTo(expectedRows)
+    }
+
+    @Test
+    fun `header length greater than buffer size 8192 is OK`() = runTest {
+        val desc8K = "description".repeat(1024)
+        val csvContent = "foo, name, $desc8K\n"
+        val expectedHeader = listOf("foo", "name", desc8K)
         val expectedRows = listOf(
             CsvRow(emptyList(), expectedHeader),
         )
 
         val csvFilePath = createTempCsvFile(csvContent)
-        val actualRows = parseCsv(csvFilePath, true, 4).toList() // bufferSize = 4
+        val actualRows = parseCsv(csvFilePath, true).toList() // bufferSize = 4
         assertThat(actualRows).isEqualTo(expectedRows)
     }
 
     @Test
-    fun `parseCsv should handle cells longer than buffer size`() = runTest {
-        val csvContent = "foo, name, description\n"
-        val expectedRows = listOf(
-            CsvRow(listOf("foo", "name", "description")),
-        )
-
-        val csvFilePath = createTempCsvFile(csvContent)
-        val actualRows = parseCsv(csvFilePath, false, 4).toList() // bufferSize = 4
-        assertThat(actualRows).isEqualTo(expectedRows)
-    }
-
-    @Test
-    fun `parseCsv should handle rows longer than buffer size`() = runTest {
-        val longDescription = "This is a very long description that is much longer than the buffer size of 8 bytes."
-        val desc2 = "Another long description that exceeds 8 bytes."
+    fun `parseCsv should handle multibyte UTF-8 characters`() = runTest {
         val csvContent = """
-        name,description
-        Alice, $longDescription
-        Bob, $desc2
-    """.trimIndent()
+            name,description
+            José,"This is a description with an accented e: é."
+            "Bjørn","Another UTF-8 character: ø"
+            "中文","你好世界"
+        """.trimIndent()
         val expectedHeader = listOf("name", "description")
         val expectedRows = listOf(
             CsvRow(emptyList(), expectedHeader),
-            CsvRow(listOf("Alice", longDescription), expectedHeader),
-            CsvRow(listOf("Bob", desc2), expectedHeader),
+            CsvRow(listOf("José", "This is a description with an accented e: é."), expectedHeader),
+            CsvRow(listOf("Bjørn", "Another UTF-8 character: ø"), expectedHeader),
+            CsvRow(listOf("中文", "你好世界"), expectedHeader),
         )
 
         val csvFilePath = createTempCsvFile(csvContent)
-        val actualRows = parseCsv(csvFilePath, true, 8).toList() // Use a buffer size of 8 for the test
+        val actualRows = parseCsv(csvFilePath, true).toList()
+        assertThat(actualRows).isEqualTo(expectedRows)
+    }
+
+    @Test
+    fun `parseCsv should handle single-byte non-ASCII characters`() = runTest {
+        val csvContent = """
+            name,description
+            José,  This is a description with an accented e: é
+            Bjørn, Another ISO-8859-1 character: ø
+        """.trimIndent()
+        val expectedHeader = listOf("name", "description")
+        val expectedRows = listOf(
+            CsvRow(emptyList(), expectedHeader),
+            CsvRow(listOf("José", "This is a description with an accented e: é"), expectedHeader),
+            CsvRow(listOf("Bjørn", "Another ISO-8859-1 character: ø"), expectedHeader),
+        )
+
+        val csvFilePath = createTempCsvFile(csvContent, StandardCharsets.ISO_8859_1)
+        val actualRows = parseCsv(csvFilePath, true, charset = StandardCharsets.ISO_8859_1).toList()
         assertThat(actualRows).isEqualTo(expectedRows)
     }
 
@@ -264,9 +297,9 @@ class ParseCsvTest {
     @TempDir
     lateinit var tempDir: Path
 
-    private fun createTempCsvFile(csvContent: String): String {
+    private fun createTempCsvFile(csvContent: String, charset: Charset = StandardCharsets.UTF_8): String {
         val tempFile = File(tempDir.toFile(), "tmp.csv")
-        FileWriter(tempFile).use { writer ->
+        FileWriter(tempFile, charset).use { writer ->
             writer.write(csvContent)
         }
         return tempFile.absolutePath
