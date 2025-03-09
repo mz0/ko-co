@@ -34,15 +34,33 @@ class ParseCsvTest {
     }
 
     @Test
-    fun `parseCsv is strict WRT whitespace after comma, or before comma`() = runTest {
+    fun `parseCsv should parse a CSV file, having only header line`() = runTest {
+        val csvContent = "name,age (years),city\n"
+        val expectedHeader = listOf("name", "age (years)", "city")
+        val expectedRows = listOf(
+            CsvRow(emptyList(), expectedHeader),
+        )
+
+        var csvFilePath = createTempCsvFile(csvContent)
+        val actualRows = parseCsv(csvFilePath, true).toList()
+        assertThat(actualRows).isEqualTo(expectedRows)
+        val csvContentNoNewline = "name,age (years),city"
+        val actualRowsNNL = parseCsv(createTempCsvFile(csvContentNoNewline), true).toList()
+        assertThat(actualRowsNNL).isEqualTo(expectedRows)
+    }
+
+    @Test
+    fun `parseCsv ignores whitespace after comma, or before comma`() = runTest {
         val csvContent = """
             Alice,30 ,New York
-            Bob, 25,Los Angeles
+            Bob,  253,Los Angeles
+            Bob, x y , Los Angeles
         """.trimIndent()
         val expectedRows = listOf(
-            CsvRow(listOf("Alice", "30 ", "New York")),
-            CsvRow(listOf("Bob", " 25", "Los Angeles")),
-        )
+            CsvRow(listOf("Alice", "30", "New York")),
+            CsvRow(listOf("Bob", "253", "Los Angeles")),
+            CsvRow(listOf("Bob", "x y", "Los Angeles")),
+            )
 
         val csvFilePath = createTempCsvFile(csvContent)
         val actualRows = parseCsv(csvFilePath, false).toList()
@@ -56,8 +74,8 @@ class ParseCsvTest {
             Bob, ,Los Angeles
         """.trimIndent()
         val expectedRows = listOf(
-            CsvRow(listOf("Bob", "", " Los Angeles")),
-            CsvRow(listOf("Bob", " ", "Los Angeles")),
+            CsvRow(listOf("Bob", "", "Los Angeles")), // empty string
+            CsvRow(listOf("Bob", "", "Los Angeles")),  // also an empty string (whitespace is trimmed)
         )
 
         val csvFilePath = createTempCsvFile(csvContent)

@@ -5,7 +5,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import java.io.FileInputStream
-import java.io.IOException
 import java.nio.ByteBuffer
 
 private const val BUFFER_SIZE = 8192
@@ -16,17 +15,15 @@ private const val NL_CHAR = '\n'
 
 data class CsvRow(val cells: List<String>, val header: List<String>? = null)
 
-// TODO parseCsv() is strict w.r.t. whitespace after comma, or before comma.
-fun parseCsv(filePath: String, hasHeader: Boolean): Flow<CsvRow> = flow {
+fun parseCsv(filePath: String, hasHeader: Boolean, bufferSize: Int = BUFFER_SIZE): Flow<CsvRow> = flow {
     FileInputStream(filePath).channel.use { fis ->
-        val buffer = ByteBuffer.allocate(BUFFER_SIZE)
+        val buffer = ByteBuffer.allocate(bufferSize)
         val currentCell = StringBuilder()
         val cells = mutableListOf<String>()
         var inQuote = false
         var escaped = false
         var currentCsvRow = 0
         var header: List<String>? = null
-        var errorMessage: String? = null
 
         while (fis.read(buffer) != -1) {
             buffer.flip() // Prepare buffer for reading
@@ -57,15 +54,11 @@ fun parseCsv(filePath: String, hasHeader: Boolean): Flow<CsvRow> = flow {
 
                     char == NL_CHAR && !inQuote -> {
                         currentCsvRow++
-                        cells.add(currentCell.toString())
+                        cells.add(currentCell.toString().trim())
                         if (currentCsvRow == 1 && hasHeader) {
                             header = cells.toList()
                             emit(CsvRow(emptyList(), header))
                         } else {
-                            if (hasHeader && (header != null) && (header.size < cells.size)) {
-                                errorMessage = "Row $currentCsvRow column count ${cells.size} " +
-                                    "is greater than header column count ${header.size}"
-                            }
                             emit(CsvRow(cells.toList(), header))
                         }
                         currentCell.clear()
@@ -73,7 +66,7 @@ fun parseCsv(filePath: String, hasHeader: Boolean): Flow<CsvRow> = flow {
                     }
 
                     char == ',' && !inQuote -> {
-                        cells.add(currentCell.toString())
+                        cells.add(currentCell.toString().trim())
                         currentCell.clear()
                     }
 
@@ -88,20 +81,13 @@ fun parseCsv(filePath: String, hasHeader: Boolean): Flow<CsvRow> = flow {
             // Handle last row if no newline at end of file
             if (currentCell.isNotEmpty() || cells.isNotEmpty()) {
                 currentCsvRow++
-                cells.add(currentCell.toString())
+                cells.add(currentCell.toString().trim())
                 if (hasHeader && currentCsvRow == 1) {
                     header = cells.toList()
                     emit(CsvRow(emptyList(), header))
                 } else {
-                    if (hasHeader && header != null && header.size != cells.size) {
-                        errorMessage = "Row $currentCsvRow column count does not match header column count," +
-                            " header size is ${header.size}, row size is ${cells.size}"
-                    }
                     emit(CsvRow(cells.toList(), header))
                 }
-            }
-            if (errorMessage != null) {
-                throw IOException(errorMessage)
             }
         }
     }

@@ -14,12 +14,13 @@ suspend fun main() {
     // TODO cycle over /home/mz0/e/shsha/src/functionalTest/testResources/parseTest/*/expected_data/*.csv
     val filePath: Path
     val resourcesDir = "src/test/resources/org/example"
+    val fileName = "dsg_user_event_info.csv"
     var testResources: Path
     if (Files.isDirectory(Paths.get("app"))) { // in IDE
         testResources = Paths.get("app", resourcesDir)
-        filePath = testResources.resolve("dsg_user_event_info.csv")
+        filePath = testResources.resolve(fileName)
     } else if (Files.isDirectory(Paths.get("../app"))) { // standalone Gradle
-        filePath = Paths.get(resourcesDir, "dsg_user_event_info.csv")
+        filePath = Paths.get(resourcesDir, fileName)
     } else {
         throw IllegalStateException("unexpected working directory: " + Paths.get("").toAbsolutePath())
     }
